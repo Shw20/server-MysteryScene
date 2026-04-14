@@ -1,5 +1,7 @@
 # MysteryScene_server
 
+.env 파일 생성
+
 # 가상환경 생성 및 활성화
 
 ```
