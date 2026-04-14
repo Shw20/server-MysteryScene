@@ -17,8 +17,10 @@ pip install fastapi uvicorn openai python-dotenv numpy
 
 # 실행
 
+# 위치: /프로젝트루트/
+
 ```
-uvicorn main:app --reload
+uvicorn src.main:app --reload
 ```
 
 http://127.0.0.1:8000/docs
