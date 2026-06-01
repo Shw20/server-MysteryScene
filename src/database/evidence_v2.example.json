@@ -1,0 +1,56 @@
+{
+  "schema_version": "2.0",
+  "scenario_id": "case001",
+  "title": "Laboratory Murder Case",
+  "language": "ko",
+  "evidence": [
+    {
+      "id": "E01",
+      "title": "Body Found In Laboratory",
+      "level": 1,
+      "category": "body",
+      "content": "Dr. Kim was found collapsed in front of the laboratory desk. The presumed cause of death is acute poisoning.",
+      "summary": "Victim found in the lab with signs of poisoning.",
+      "keywords": ["body", "cause of death", "poison"],
+      "tags": ["crime_scene", "medical"],
+      "entities": [
+        {
+          "name": "Dr. Kim",
+          "role": "victim",
+          "aliases": ["victim", "professor"]
+        }
+      ],
+      "source_type": "scene_report",
+      "location": "laboratory",
+      "event_time": "23:15",
+      "related_ids": ["E02"],
+      "contradicts": [],
+      "visibility": "public",
+      "search_text": "poisoning death body found laboratory desk"
+    },
+    {
+      "id": "E02",
+      "title": "Coffee Cup Residue",
+      "level": 2,
+      "category": "physical_evidence",
+      "content": "A small amount of sleeping drug was detected in Dr. Kim's coffee cup.",
+      "summary": "Drug residue was found in the coffee cup.",
+      "keywords": ["coffee", "drug", "sleeping drug"],
+      "tags": ["physical", "toxicology"],
+      "entities": [
+        {
+          "name": "coffee cup",
+          "role": "object",
+          "aliases": ["cup", "mug"]
+        }
+      ],
+      "source_type": "lab_report",
+      "location": "laboratory",
+      "event_time": null,
+      "related_ids": ["E01"],
+      "contradicts": [],
+      "visibility": "locked",
+      "search_text": "coffee cup sleeping drug toxicology residue"
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+# FastAPI 서버와 정적 데모 페이지 서빙
+fastapi==0.136.3
+uvicorn==0.48.0
+
+# GPT 답변/의도 분류 호출과 .env 로딩
+openai==2.38.0
+python-dotenv==1.2.2
+
+# 로컬 RAG/벡터 계산과 데이터 검증
+numpy==2.4.6
+pydantic==2.13.4

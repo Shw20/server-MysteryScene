@@ -1,14 +1,25 @@
 import os
 from dataclasses import dataclass
 
+try:
+    from dotenv import load_dotenv
+except ImportError:
+    load_dotenv = None
+
+if load_dotenv is not None:
+    # 로컬 개발에서는 .env를 읽고, 배포 환경에서는 플랫폼 환경변수를 그대로 쓴다.
+    load_dotenv()
+
 
 def _to_int(value: str | None, default: int | None = None) -> int | None:
+    """비어 있는 환경변수는 기본값으로 돌리고, 값이 있으면 int로 변환한다."""
     if value in (None, ""):
         return default
     return int(value)
 
 
 def _to_float(value: str | None, default: float | None = None) -> float | None:
+    """점수 임계값처럼 실수 환경변수가 필요한 설정을 안전하게 변환한다."""
     if value in (None, ""):
         return default
     return float(value)
@@ -23,6 +34,7 @@ class RAGSettings:
     sqlite_db_path: str = "data/rag_store.sqlite3"
     openai_api_key: str | None = None
     openai_embedding_model: str = "text-embedding-3-small"
+    openai_chat_model: str = "gpt-4.1-mini"
     openai_base_url: str | None = None
     openai_dimensions: int | None = None
     openai_batch_size: int = 32
@@ -41,6 +53,7 @@ class RAGSettings:
                 "OPENAI_EMBEDDING_MODEL",
                 "text-embedding-3-small",
             ),
+            openai_chat_model=os.getenv("OPENAI_CHAT_MODEL", "gpt-4.1-mini"),
             openai_base_url=os.getenv("OPENAI_BASE_URL"),
             openai_dimensions=_to_int(os.getenv("OPENAI_EMBEDDING_DIMENSIONS")),
             openai_batch_size=_to_int(

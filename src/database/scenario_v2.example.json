@@ -1,0 +1,396 @@
+{
+  "schema_version": "2.0",
+  "scenario_id": "case112_worlds_most_high_maintenance_friend",
+  "title": "세계에서 가장 손이 많이 가는 친구",
+  "language": "ko",
+  "difficulty": 2,
+  "overview": {
+    "player_intro": "탐정이 사라졌고, 서재에는 이상한 메모와 흑맥주 흔적이 남아 있다.",
+    "internal_summary": "흑맥주 브랜드는 기네스 세계 기록을 가리키며, 메모의 물건들은 국내 최대 조형물 기록과 연결된다. 마지막 목적지는 세계 최대 트로이의 목마가 있는 경기도 여주다."
+  },
+  "rag_policy": {
+    "index_sections": ["evidence"],
+    "exclude_sections": ["solution"],
+    "include_search_text": true,
+    "default_visibility_filter": ["public", "locked"]
+  },
+  "characters": [
+    {
+      "id": "C_DETECTIVE",
+      "name": "탐정",
+      "role": "detective",
+      "aliases": ["사라진 탐정", "귀찮은 친구"],
+      "description": "퀴즈처럼 단서를 남기고 사라진 인물.",
+      "known_facts": ["서재에 메모와 흑맥주 흔적을 남겼다."]
+    },
+    {
+      "id": "C_NARRATOR",
+      "name": "나",
+      "role": "other",
+      "aliases": ["플레이어", "화자"],
+      "description": "탐정의 서재에서 단서를 해석하는 인물.",
+      "known_facts": ["탐정이 남긴 단서를 따라 목적지를 추리한다."]
+    }
+  ],
+  "locations": [
+    {
+      "id": "L_STUDY",
+      "name": "탐정의 서재",
+      "description": "안락의자와 사이드 테이블, 쓰레기통이 있는 공간."
+    },
+    {
+      "id": "L_YEOJU",
+      "name": "경기도 여주",
+      "description": "세계 최대 트로이의 목마 조형물이 있는 최종 목적지."
+    }
+  ],
+  "timeline": [
+    {
+      "id": "T01",
+      "time": "사건 시작",
+      "location_id": "L_STUDY",
+      "character_ids": ["C_NARRATOR"],
+      "event": "화자가 탐정의 서재에서 첫 단서를 발견한다.",
+      "source_evidence_ids": ["E01"]
+    }
+  ],
+  "evidence": [
+    {
+      "id": "E01",
+      "title": "메모에 남은 네 단어",
+      "level": 1,
+      "category": "document",
+      "content": "메모에는 '가장 큰 책, 우체통, 해시계, 트로이의 목마'라는 단어가 눌러쓴 자국으로 남아 있었다.",
+      "summary": "메모의 단어들은 모두 '가장 큰'이라는 수식어와 연결된다.",
+      "keywords": ["가장 큰", "책", "우체통", "해시계", "트로이의 목마"],
+      "tags": ["memo", "world_record", "object_list"],
+      "entities": [
+        {
+          "name": "메모",
+          "role": "object",
+          "aliases": ["메모지", "단서 메모"]
+        }
+      ],
+      "source_type": "memo",
+      "location_id": "L_STUDY",
+      "image_url": "/assets/evidence/memo-clue.png",
+      "image_alt": "테이블 위에 놓인 오래된 메모지",
+      "related_ids": ["E02"],
+      "contradicts": [],
+      "visibility": "public",
+      "is_red_herring": false,
+      "spoiler_level": "hint",
+      "search_text": "가장 큰 책 우체통 해시계 트로이의 목마 국내 조형물 세계 기록"
+    },
+    {
+      "id": "E02",
+      "title": "흑맥주 캔",
+      "level": 1,
+      "category": "physical_evidence",
+      "content": "쓰레기통에서 흑맥주 캔이 발견되었다. 이 브랜드는 기네스 세계 기록을 떠올리게 한다.",
+      "summary": "흑맥주 캔은 기네스 세계 기록과 연결되는 핵심 단서다.",
+      "keywords": ["흑맥주", "기네스", "세계 기록"],
+      "tags": ["beer", "brand_clue", "world_record"],
+      "entities": [
+        {
+          "name": "흑맥주 캔",
+          "role": "object",
+          "aliases": ["맥주캔", "기네스"]
+        }
+      ],
+      "source_type": "physical_evidence",
+      "location_id": "L_STUDY",
+      "image_url": "/assets/evidence/beer-clue.png",
+      "image_alt": "쓰레기통 안에서 발견된 흑맥주 캔",
+      "related_ids": ["E01", "E03"],
+      "contradicts": [],
+      "visibility": "public",
+      "is_red_herring": false,
+      "spoiler_level": "critical",
+      "search_text": "기네스 흑맥주 세계 기록 가장 큰 조형물"
+    },
+    {
+      "id": "E03",
+      "title": "기네스 기록으로 이어지는 맥주",
+      "level": 2,
+      "category": "deduction",
+      "content": "흑맥주 브랜드는 술 자체보다 '기네스 세계 기록'을 떠올리게 하는 장치였다.",
+      "summary": "메모의 '가장 큰' 대상들은 기네스 세계 기록 항목으로 다시 확인해야 한다.",
+      "keywords": ["기네스", "세계 기록", "가장 큰", "브랜드"],
+      "tags": ["world_record", "deduction", "bridge_clue"],
+      "entities": [
+        {
+          "name": "기네스 세계 기록",
+          "role": "record",
+          "aliases": ["기네스북", "Guinness World Records"]
+        }
+      ],
+      "source_type": "deduction",
+      "location_id": "L_STUDY",
+      "related_ids": ["E01", "E02", "E04", "E05", "E06"],
+      "contradicts": [],
+      "visibility": "locked",
+      "is_red_herring": false,
+      "spoiler_level": "critical",
+      "search_text": "기네스 세계 기록 흑맥주 브랜드 가장 큰 대상 기록 항목"
+    },
+    {
+      "id": "E04",
+      "title": "가장 큰 책 기록",
+      "level": 2,
+      "category": "record_clue",
+      "content": "메모의 '가장 큰 책'은 평범한 책 제목이 아니라, 세계 기록에 오른 거대한 책 조형물 항목으로 해석된다.",
+      "summary": "첫 번째 단어는 '세계에서 가장 큰 X'라는 기록 항목을 찾으라는 지시다.",
+      "keywords": ["가장 큰 책", "책", "세계 기록", "조형물"],
+      "tags": ["book", "world_record", "object_record"],
+      "entities": [
+        {
+          "name": "가장 큰 책",
+          "role": "record",
+          "aliases": ["책 기록", "큰 책"]
+        }
+      ],
+      "source_type": "record_lookup",
+      "location_id": "L_STUDY",
+      "related_ids": ["E01", "E03", "E07"],
+      "contradicts": [],
+      "visibility": "locked",
+      "is_red_herring": false,
+      "spoiler_level": "critical",
+      "search_text": "가장 큰 책 세계 기록 거대한 책 조형물 기록 항목"
+    },
+    {
+      "id": "E05",
+      "title": "가장 큰 우체통 기록",
+      "level": 2,
+      "category": "record_clue",
+      "content": "메모의 '우체통'도 기능보다 크기가 강조된 기록 항목이었다. 조사 기록에는 세계에서 가장 큰 우체통 조형물 항목이 따로 남아 있다.",
+      "summary": "두 번째 단어도 같은 방식으로 세계 기록 항목과 연결된다.",
+      "keywords": ["가장 큰 우체통", "우체통", "세계 기록", "조형물"],
+      "tags": ["postbox", "world_record", "object_record"],
+      "entities": [
+        {
+          "name": "가장 큰 우체통",
+          "role": "record",
+          "aliases": ["우체통 기록", "큰 우체통"]
+        }
+      ],
+      "source_type": "record_lookup",
+      "location_id": "L_STUDY",
+      "related_ids": ["E01", "E03", "E07"],
+      "contradicts": [],
+      "visibility": "locked",
+      "is_red_herring": false,
+      "spoiler_level": "critical",
+      "search_text": "가장 큰 우체통 세계 기록 거대한 우체통 조형물 기록 항목"
+    },
+    {
+      "id": "E06",
+      "title": "가장 큰 해시계 기록",
+      "level": 2,
+      "category": "record_clue",
+      "content": "메모의 '해시계' 역시 세계에서 가장 큰 해시계 조형물 기록과 맞물린다. 앞선 책, 우체통과 같은 규칙이 반복된다.",
+      "summary": "세 번째 단어까지 확인하면 메모가 기록 목록을 순서대로 가리킨다는 점이 분명해진다.",
+      "keywords": ["가장 큰 해시계", "해시계", "세계 기록", "조형물"],
+      "tags": ["sundial", "world_record", "object_record"],
+      "entities": [
+        {
+          "name": "가장 큰 해시계",
+          "role": "record",
+          "aliases": ["해시계 기록", "큰 해시계"]
+        }
+      ],
+      "source_type": "record_lookup",
+      "location_id": "L_STUDY",
+      "related_ids": ["E01", "E03", "E07"],
+      "contradicts": [],
+      "visibility": "locked",
+      "is_red_herring": false,
+      "spoiler_level": "critical",
+      "search_text": "가장 큰 해시계 세계 기록 거대한 해시계 조형물 기록 항목"
+    },
+    {
+      "id": "E07",
+      "title": "네 단어의 공통 패턴",
+      "level": 3,
+      "category": "deduction",
+      "content": "책, 우체통, 해시계는 모두 '세계에서 가장 큰 것'으로 기록된 대형 조형물이라는 공통점을 가진다. 남은 단어인 트로이의 목마도 같은 방식으로 찾아야 한다.",
+      "summary": "마지막 단어는 '세계에서 가장 큰 트로이의 목마' 기록을 찾으라는 방향을 준다.",
+      "keywords": ["공통점", "패턴", "트로이의 목마", "세계에서 가장 큰", "조형물"],
+      "tags": ["pattern", "deduction", "world_record"],
+      "entities": [
+        {
+          "name": "네 단어의 공통점",
+          "role": "deduction",
+          "aliases": ["공통 패턴", "기록 패턴"]
+        }
+      ],
+      "source_type": "deduction",
+      "location_id": "L_STUDY",
+      "related_ids": ["E04", "E05", "E06", "E08"],
+      "contradicts": [],
+      "visibility": "locked",
+      "is_red_herring": false,
+      "spoiler_level": "critical",
+      "search_text": "책 우체통 해시계 공통점 세계에서 가장 큰 조형물 기록 패턴 트로이의 목마"
+    },
+    {
+      "id": "E08",
+      "title": "세계 최대 트로이의 목마",
+      "level": 3,
+      "category": "solution_clue",
+      "content": "같은 규칙으로 마지막 단어를 찾으면, 세계 최대 트로이의 목마 조형물이 있는 경기도 여주가 최종 목적지로 남는다.",
+      "summary": "최종 답은 경기도 여주다.",
+      "keywords": ["경기도 여주", "트로이의 목마", "세계 최대 트로이의 목마", "세종대마"],
+      "tags": ["final_location", "solution", "world_record"],
+      "entities": [
+        {
+          "name": "경기도 여주",
+          "role": "location",
+          "aliases": ["여주"]
+        }
+      ],
+      "source_type": "deduction",
+      "location_id": "L_YEOJU",
+      "related_ids": ["E07"],
+      "contradicts": [],
+      "visibility": "locked",
+      "is_red_herring": false,
+      "spoiler_level": "solution",
+      "search_text": "세계 최대 트로이의 목마 경기도 여주 세종대마 최종 목적지"
+    }
+  ],
+  "unlock_rules": [
+    {
+      "id": "U01",
+      "target_evidence_id": "E03",
+      "condition": {
+        "type": "evidence_found",
+        "evidence_ids": ["E01", "E02"]
+      },
+      "description": "메모와 흑맥주 캔을 모두 확인하면 기네스 기록 연결 단서가 열린다."
+    },
+    {
+      "id": "U02",
+      "target_evidence_id": "E04",
+      "condition": {
+        "type": "evidence_found",
+        "evidence_ids": ["E03"]
+      },
+      "description": "기네스 기록 연결을 확인하면 가장 큰 책 기록을 조사할 수 있다."
+    },
+    {
+      "id": "U03",
+      "target_evidence_id": "E05",
+      "condition": {
+        "type": "evidence_found",
+        "evidence_ids": ["E03"]
+      },
+      "description": "기네스 기록 연결을 확인하면 가장 큰 우체통 기록을 조사할 수 있다."
+    },
+    {
+      "id": "U04",
+      "target_evidence_id": "E06",
+      "condition": {
+        "type": "evidence_found",
+        "evidence_ids": ["E03"]
+      },
+      "description": "기네스 기록 연결을 확인하면 가장 큰 해시계 기록을 조사할 수 있다."
+    },
+    {
+      "id": "U05",
+      "target_evidence_id": "E07",
+      "condition": {
+        "type": "evidence_found",
+        "evidence_ids": ["E04", "E05", "E06"]
+      },
+      "description": "책, 우체통, 해시계 기록을 모두 확인하면 공통 패턴 단서가 열린다."
+    },
+    {
+      "id": "U06",
+      "target_evidence_id": "E08",
+      "condition": {
+        "type": "evidence_found",
+        "evidence_ids": ["E07"]
+      },
+      "description": "공통 패턴을 확인하면 최종 목적지 단서가 열린다."
+    }
+  ],
+  "questions": [
+    {
+      "id": "Q01",
+      "question": "흑맥주는 어떤 의미야?",
+      "expected_evidence_ids": ["E02"],
+      "min_level": 1
+    },
+    {
+      "id": "Q02",
+      "question": "기네스 기록과 어떻게 연결돼?",
+      "expected_evidence_ids": ["E03"],
+      "min_level": 2
+    },
+    {
+      "id": "Q03",
+      "question": "가장 큰 책은 어떤 단서야?",
+      "expected_evidence_ids": ["E04"],
+      "min_level": 2
+    },
+    {
+      "id": "Q04",
+      "question": "가장 큰 우체통은 어떤 단서야?",
+      "expected_evidence_ids": ["E05"],
+      "min_level": 2
+    },
+    {
+      "id": "Q05",
+      "question": "가장 큰 해시계는 어떤 단서야?",
+      "expected_evidence_ids": ["E06"],
+      "min_level": 2
+    },
+    {
+      "id": "Q06",
+      "question": "네 단어의 공통점은 뭐야?",
+      "expected_evidence_ids": ["E07"],
+      "min_level": 3
+    },
+    {
+      "id": "Q07",
+      "question": "트로이의 목마는 어디를 가리켜?",
+      "expected_evidence_ids": ["E08"],
+      "min_level": 3
+    }
+  ],
+  "facts": [
+    {
+      "id": "F01",
+      "statement": "흑맥주 단서는 기네스 세계 기록을 가리킨다.",
+      "evidence_ids": ["E02"],
+      "truth_status": "true"
+    },
+    {
+      "id": "F02",
+      "statement": "메모의 앞 세 단어는 모두 세계에서 가장 큰 조형물 기록과 연결된다.",
+      "evidence_ids": ["E04", "E05", "E06", "E07"],
+      "truth_status": "true"
+    },
+    {
+      "id": "F03",
+      "statement": "최종 목적지는 경기도 여주다.",
+      "evidence_ids": ["E08"],
+      "truth_status": "true"
+    }
+  ],
+  "accusation_checks": {
+    "culprit_character_id": "C_DETECTIVE",
+    "required_evidence_ids": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08"],
+    "accepted_motives": ["퀴즈", "자작극", "여행지 추리"],
+    "accepted_methods": ["메모", "흑맥주", "세계 기록"]
+  },
+  "solution": {
+    "culprit_character_id": "C_DETECTIVE",
+    "motive": "탐정은 자신의 여행지를 맞히게 하려고 퀴즈 형식의 단서를 남겼다.",
+    "method": "메모의 '가장 큰' 대상들과 흑맥주 브랜드를 기네스 세계 기록으로 연결하게 했다.",
+    "decisive_evidence_ids": ["E01", "E02", "E03", "E04", "E05", "E06", "E07", "E08"],
+    "explanation": "흑맥주 캔은 기네스를 가리키고, 메모의 대상들은 기네스 세계 기록에 등재된 대형 조형물들과 연결된다. 책, 우체통, 해시계를 통해 같은 규칙을 확인하면 마지막 대상인 트로이의 목마는 경기도 여주의 세계 최대 트로이의 목마 조형물을 가리킨다."
+  }
+}

@@ -1,0 +1,875 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MysteryScene Chat Preview</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #111312;
+        --panel: #1b1f1d;
+        --panel-soft: #232925;
+        --text: #f2f4ef;
+        --muted: #aab3aa;
+        --line: #3b433d;
+        --accent: #e0b65b;
+        --accent-strong: #f1ca73;
+        --danger: #ef8f8f;
+        --ok: #95d8a6;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        background:
+          radial-gradient(circle at 30% 0%, rgba(224, 182, 91, 0.12), transparent 34rem),
+          linear-gradient(135deg, #111312 0%, #171b18 52%, #0e1110 100%);
+        color: var(--text);
+        font-family: Arial, "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+      }
+
+      main {
+        width: min(1180px, calc(100% - 32px));
+        margin: 0 auto;
+        padding: 28px 0;
+      }
+
+      header {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 20px;
+      }
+
+      h1 {
+        margin: 0 0 8px;
+        font-size: 30px;
+        font-weight: 700;
+        letter-spacing: 0;
+      }
+
+      p {
+        margin: 0;
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .status {
+        min-width: 160px;
+        padding: 10px 12px;
+        border: 1px solid var(--line);
+        background: rgba(27, 31, 29, 0.78);
+        border-radius: 8px;
+        color: var(--muted);
+        text-align: right;
+      }
+
+      .layout {
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 360px;
+        gap: 20px;
+      }
+
+      section {
+        border: 1px solid var(--line);
+        background: rgba(27, 31, 29, 0.86);
+        border-radius: 8px;
+      }
+
+      .chat-panel {
+        min-height: 680px;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .toolbar {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        border-bottom: 1px solid var(--line);
+        padding: 14px 16px;
+      }
+
+      .session-tools {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+      }
+
+      input,
+      textarea {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #111513;
+        color: var(--text);
+        font: inherit;
+      }
+
+      input {
+        width: 210px;
+        padding: 9px 12px;
+      }
+
+      textarea {
+        width: 100%;
+        min-height: 72px;
+        max-height: 180px;
+        resize: vertical;
+        padding: 12px;
+        line-height: 1.55;
+      }
+
+      textarea:focus,
+      input:focus {
+        border-color: var(--accent);
+        outline: 2px solid rgba(224, 182, 91, 0.18);
+      }
+
+      button {
+        border: 0;
+        border-radius: 8px;
+        background: var(--accent);
+        color: #1a1508;
+        cursor: pointer;
+        font: inherit;
+        font-weight: 700;
+        padding: 10px 14px;
+      }
+
+      button.secondary {
+        border: 1px solid var(--line);
+        background: var(--panel-soft);
+        color: var(--text);
+      }
+
+      button.submit {
+        background: #95d8a6;
+        color: #0c1b10;
+      }
+
+      button:hover {
+        background: var(--accent-strong);
+      }
+
+      button.secondary:hover {
+        background: #2d352f;
+      }
+
+      button.submit:hover {
+        background: #b5edc2;
+      }
+
+      button:disabled {
+        cursor: wait;
+        opacity: 0.62;
+      }
+
+      .messages {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        overflow: auto;
+        padding: 18px;
+      }
+
+      .case-file {
+        border: 1px solid rgba(224, 182, 91, 0.35);
+        border-radius: 8px;
+        background: #191b18;
+        margin: 18px 18px 0;
+        padding: 16px;
+      }
+
+      .case-file h2 {
+        margin: 0 0 8px;
+        font-size: 20px;
+        letter-spacing: 0;
+      }
+
+      .case-file p {
+        color: #d9ded8;
+      }
+
+      .case-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 12px 0;
+      }
+
+      .case-steps {
+        display: grid;
+        gap: 7px;
+        margin-top: 12px;
+      }
+
+      .case-step {
+        border-left: 2px solid var(--accent);
+        color: var(--muted);
+        font-size: 13px;
+        line-height: 1.45;
+        padding-left: 9px;
+      }
+
+      .message {
+        max-width: min(720px, 88%);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        padding: 12px 14px;
+        white-space: pre-wrap;
+        line-height: 1.65;
+      }
+
+      .message.user {
+        align-self: flex-end;
+        background: #2b2417;
+        border-color: rgba(224, 182, 91, 0.45);
+      }
+
+      .message.assistant {
+        align-self: flex-start;
+        background: var(--panel-soft);
+      }
+
+      .message-media {
+        display: grid;
+        gap: 8px;
+        margin-top: 10px;
+      }
+
+      .message-media img,
+      .evidence-image {
+        display: block;
+        width: min(100%, 520px);
+        max-height: 360px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #0c0f0d;
+        object-fit: cover;
+      }
+
+      .composer {
+        border-top: 1px solid var(--line);
+        padding: 14px 16px;
+      }
+
+      .preset-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 10px;
+      }
+
+      button.preset {
+        border: 1px solid var(--line);
+        background: var(--panel-soft);
+        color: var(--text);
+        font-size: 13px;
+        padding: 8px 10px;
+      }
+
+      button.preset:hover {
+        background: #2d352f;
+      }
+
+      .composer-actions {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        margin-top: 10px;
+      }
+
+      .hint {
+        color: var(--muted);
+        font-size: 13px;
+      }
+
+      .side-panel {
+        display: flex;
+        flex-direction: column;
+        min-height: 680px;
+      }
+
+      .side-body {
+        padding: 16px;
+      }
+
+      .meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-bottom: 14px;
+      }
+
+      .progress-panel {
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #171b18;
+        margin-bottom: 14px;
+        padding: 13px;
+      }
+
+      .progress-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .progress-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 8px;
+      }
+
+      .progress-row {
+        min-height: 54px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel-soft);
+        padding: 9px;
+      }
+
+      .progress-label {
+        color: var(--muted);
+        display: block;
+        font-size: 12px;
+        margin-bottom: 4px;
+      }
+
+      .progress-value {
+        color: var(--text);
+        font-size: 17px;
+        font-weight: 700;
+      }
+
+      .progress-list {
+        display: grid;
+        gap: 8px;
+        margin-top: 12px;
+      }
+
+      .progress-evidence {
+        border-left: 2px solid var(--accent);
+        color: #d9ded8;
+        font-size: 13px;
+        line-height: 1.45;
+        padding-left: 9px;
+      }
+
+      .progress-evidence span,
+      .empty-progress {
+        color: var(--muted);
+        font-size: 12px;
+      }
+
+      .pill {
+        border: 1px solid var(--line);
+        border-radius: 999px;
+        background: var(--panel-soft);
+        color: var(--muted);
+        font-size: 12px;
+        padding: 5px 9px;
+      }
+
+      .pill.ok {
+        border-color: rgba(149, 216, 166, 0.5);
+        color: var(--ok);
+      }
+
+      .pill.error {
+        border-color: rgba(239, 143, 143, 0.5);
+        color: var(--danger);
+      }
+
+      .evidence-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .evidence {
+        border: 1px solid var(--line);
+        background: var(--panel-soft);
+        border-radius: 8px;
+        padding: 12px;
+      }
+
+      .evidence h2 {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin: 0 0 8px;
+        font-size: 14px;
+        letter-spacing: 0;
+      }
+
+      .evidence p {
+        white-space: pre-wrap;
+        color: #d9ded8;
+        font-size: 13px;
+      }
+
+      .evidence-image {
+        margin: 8px 0 10px;
+      }
+
+      @media (max-width: 900px) {
+        header {
+          align-items: stretch;
+          flex-direction: column;
+        }
+
+        .status {
+          text-align: left;
+        }
+
+        .layout {
+          grid-template-columns: 1fr;
+        }
+
+        .chat-panel,
+        .side-panel {
+          min-height: auto;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <div>
+          <h1>MysteryScene Chat</h1>
+          <p>서버 세션, 언락 규칙, RAG 검색, GPT 답변 생성을 함께 테스트합니다.</p>
+        </div>
+        <div class="status" id="backendStatus">Backend: checking...</div>
+      </header>
+
+      <div class="layout">
+        <section class="chat-panel">
+          <div class="toolbar">
+            <div class="session-tools">
+              <span class="hint">Session</span>
+              <input id="sessionId" readonly />
+            </div>
+            <button class="secondary" id="resetSessionButton" type="button">새 세션</button>
+          </div>
+
+          <div class="messages" id="messages"></div>
+
+          <div class="composer">
+            <div class="preset-row" aria-label="빠른 질문">
+              <button class="preset" type="button" data-question="서재를 살펴본다">서재 살피기</button>
+              <button class="preset" type="button" data-question="테이블 위 메모를 확인한다">메모 확인</button>
+              <button class="preset" type="button" data-question="쓰레기통을 뒤져본다">쓰레기통</button>
+              <button class="preset" type="button" data-question="기네스 기록을 확인한다">기네스 기록</button>
+              <button class="preset" type="button" data-question="가장 큰 책 기록을 조사한다">큰 책</button>
+              <button class="preset" type="button" data-question="가장 큰 우체통 기록을 조사한다">우체통</button>
+              <button class="preset" type="button" data-question="가장 큰 해시계 기록을 조사한다">해시계</button>
+              <button class="preset" type="button" data-question="네 단어의 공통점을 정리한다">공통점</button>
+              <button class="preset" type="button" data-question="트로이의 목마가 있는 최종 여행지는 어디야?">최종 여행지</button>
+              <button class="preset" type="button" data-question="최종 여행지는 경기도 여주야.">정답 입력</button>
+            </div>
+            <textarea id="question">트로이의 목마가 있는 최종 여행지는 어디야?</textarea>
+            <div class="composer-actions">
+              <span class="hint">Ctrl/⌘ + Enter로 전송</span>
+              <div class="session-tools">
+                <button class="submit" id="submitButton" type="button">정답 제출</button>
+                <button id="askButton" type="button">전송</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section class="side-panel">
+          <div class="toolbar">
+            <strong>사건 상태</strong>
+          </div>
+          <div class="side-body">
+            <div class="case-file" id="caseFile" style="margin: 0 0 14px;"></div>
+            <div class="meta" id="meta"></div>
+            <div class="progress-panel" id="progressPanel"></div>
+            <div class="evidence-list" id="evidenceList"></div>
+          </div>
+        </section>
+      </div>
+    </main>
+
+    <script>
+      const API_BASE = "http://127.0.0.1:8000";
+      const statusEl = document.querySelector("#backendStatus");
+      const questionEl = document.querySelector("#question");
+      const sessionIdEl = document.querySelector("#sessionId");
+      const resetSessionButtonEl = document.querySelector("#resetSessionButton");
+      const buttonEl = document.querySelector("#askButton");
+      const submitButtonEl = document.querySelector("#submitButton");
+      const presetButtonEls = document.querySelectorAll("[data-question]");
+      const messagesEl = document.querySelector("#messages");
+      const caseFileEl = document.querySelector("#caseFile");
+      const metaEl = document.querySelector("#meta");
+      const progressPanelEl = document.querySelector("#progressPanel");
+      const evidenceListEl = document.querySelector("#evidenceList");
+      let sessionId = createSessionId();
+
+      function createSessionId() {
+        return `preview-${Date.now().toString(36)}`;
+      }
+
+      function resolveImageUrl(url) {
+        if (!url) return "";
+        if (url.startsWith("http://") || url.startsWith("https://") || url.startsWith("data:")) {
+          return url;
+        }
+        if (url.startsWith("/")) {
+          return `${API_BASE}${url}`;
+        }
+        return url;
+      }
+
+      function mediaFromEvidence(evidence) {
+        const seen = new Set();
+        const media = [];
+        for (const item of evidence || []) {
+          if (!item.image?.url || seen.has(item.image.url)) continue;
+          seen.add(item.image.url);
+          media.push(item.image);
+        }
+        return media;
+      }
+
+      function appendMedia(parent, media) {
+        if (!media || media.length === 0) return;
+        const mediaEl = document.createElement("div");
+        mediaEl.className = "message-media";
+        for (const item of media) {
+          const imageEl = document.createElement("img");
+          imageEl.src = resolveImageUrl(item.url);
+          imageEl.alt = item.alt || "단서 이미지";
+          imageEl.loading = "lazy";
+          mediaEl.appendChild(imageEl);
+        }
+        parent.appendChild(mediaEl);
+      }
+
+      function addMessage(role, text, media = []) {
+        const el = document.createElement("div");
+        el.className = `message ${role}`;
+        const textEl = document.createElement("div");
+        textEl.textContent = text;
+        el.appendChild(textEl);
+        appendMedia(el, media);
+        messagesEl.appendChild(el);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+      }
+
+      async function resetSession() {
+        sessionId = createSessionId();
+        sessionIdEl.value = sessionId;
+        messagesEl.innerHTML = "";
+        evidenceListEl.innerHTML = "";
+        progressPanelEl.innerHTML = "";
+        setMeta([]);
+        caseFileEl.innerHTML = "";
+        await startCase();
+      }
+
+      function setMeta(items) {
+        metaEl.innerHTML = "";
+        for (const item of items) {
+          const el = document.createElement("span");
+          el.className = `pill ${item.kind || ""}`.trim();
+          el.textContent = item.text;
+          metaEl.appendChild(el);
+        }
+      }
+
+      function renderProgress(data) {
+        progressPanelEl.innerHTML = `
+          <div class="progress-head">
+            <strong>현재 진행도</strong>
+            <span class="pill"></span>
+          </div>
+          <div class="progress-grid"></div>
+          <div class="progress-list"></div>
+        `;
+
+        const statusPill = progressPanelEl.querySelector(".progress-head .pill");
+        statusPill.className = `pill ${data.can_submit ? "ok" : ""}`.trim();
+        statusPill.textContent = data.can_submit ? "제출 가능" : "조사 필요";
+
+        const grid = progressPanelEl.querySelector(".progress-grid");
+        const rows = [
+          ["허용 레벨", data.allowed_level ?? "-"],
+          ["단서", `${data.discovered_evidence_count ?? 0}/${data.total_evidence_count ?? "-"}`],
+          ["핵심 단서", `${data.found_required_evidence_count ?? 0}/${data.required_evidence_count ?? "-"}`],
+          ["질문", data.question_count ?? 0],
+          ["제출", data.submission_count ?? 0],
+          ["해결", data.solved ? "완료" : "진행 중"],
+        ];
+        if (data.clear_rank) {
+          rows.push(["랭크", data.clear_rank.label || data.clear_rank.rank || "-"]);
+        }
+        for (const [label, value] of rows) {
+          const row = document.createElement("div");
+          row.className = "progress-row";
+          row.innerHTML = `
+            <span class="progress-label"></span>
+            <span class="progress-value"></span>
+          `;
+          row.querySelector(".progress-label").textContent = label;
+          row.querySelector(".progress-value").textContent = value;
+          grid.appendChild(row);
+        }
+
+        const list = progressPanelEl.querySelector(".progress-list");
+        const items = data.discovered_evidence || [];
+        if (items.length === 0) {
+          const empty = document.createElement("p");
+          empty.className = "empty-progress";
+          empty.textContent = "아직 확인한 단서가 없습니다.";
+          list.appendChild(empty);
+          return;
+        }
+
+        for (const item of items) {
+          const el = document.createElement("div");
+          el.className = "progress-evidence";
+          el.innerHTML = `
+            <strong></strong>
+            <span></span>
+          `;
+          el.querySelector("strong").textContent = item.title || item.id;
+          el.querySelector("span").textContent = `Lv.${item.level} · ${item.category}${item.is_required ? " · 핵심" : ""}`;
+          list.appendChild(el);
+        }
+      }
+
+      async function refreshProgress() {
+        try {
+          const response = await fetch(`${API_BASE}/investigation/progress`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sessionId }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+          renderProgress(data);
+        } catch (error) {
+          progressPanelEl.innerHTML = "";
+          const empty = document.createElement("p");
+          empty.className = "empty-progress";
+          empty.textContent = `진행도 확인 실패: ${error.message}`;
+          progressPanelEl.appendChild(empty);
+        }
+      }
+
+      function renderCaseFile(data) {
+        const flow = data.flow || [];
+        const questions = data.suggested_questions || [];
+        caseFileEl.innerHTML = `
+          <h2></h2>
+          <p class="case-intro"></p>
+          <div class="case-meta"></div>
+          <p class="case-objective"></p>
+          <div class="case-steps"></div>
+        `;
+        caseFileEl.querySelector("h2").textContent = `사건 파일 - ${data.title || "Untitled"}`;
+        caseFileEl.querySelector(".case-intro").textContent = data.intro || "";
+        caseFileEl.querySelector(".case-objective").textContent = data.objective || "";
+
+        const meta = caseFileEl.querySelector(".case-meta");
+        for (const item of [
+          `난이도 ${data.difficulty ?? "-"}`,
+          `허용 레벨 ${data.state?.allowed_level ?? "-"}`,
+          `확인 단서 ${data.state?.discovered_evidence_count ?? 0}`,
+        ]) {
+          const el = document.createElement("span");
+          el.className = "pill";
+          el.textContent = item;
+          meta.appendChild(el);
+        }
+
+        const steps = caseFileEl.querySelector(".case-steps");
+        for (const item of [...flow, ...questions.map((question) => `초반 질문: ${question}`)]) {
+          const el = document.createElement("div");
+          el.className = "case-step";
+          el.textContent = item;
+          steps.appendChild(el);
+        }
+      }
+
+      async function startCase() {
+        try {
+          const response = await fetch(`${API_BASE}/investigation/start`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: sessionId }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+
+          renderCaseFile(data);
+          addMessage("assistant", `${data.title}\n${data.intro}\n\n${data.objective}`);
+          setMeta([
+            { text: data.status || "ready", kind: data.status === "ready" ? "ok" : "" },
+            { text: `allowed ${data.state?.allowed_level ?? "-"}` },
+            { text: `found ${data.state?.discovered_evidence_count ?? 0}` },
+            { text: `turn ${data.state?.question_count ?? 0}` },
+          ]);
+          await refreshProgress();
+        } catch (error) {
+          addMessage("assistant", `시작 실패: ${error.message}`);
+          setMeta([{ text: "error", kind: "error" }]);
+        }
+      }
+
+      async function checkBackend() {
+        try {
+          const response = await fetch(`${API_BASE}/`);
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          statusEl.textContent = "Backend: online";
+          statusEl.style.color = "var(--ok)";
+        } catch (error) {
+          statusEl.textContent = "Backend: offline";
+          statusEl.style.color = "var(--danger)";
+        }
+      }
+
+      async function askQuestion() {
+        const question = questionEl.value.trim();
+        if (!question) return;
+
+        buttonEl.disabled = true;
+        submitButtonEl.disabled = true;
+        addMessage("user", question);
+        setMeta([{ text: "requesting" }]);
+
+        try {
+          const response = await fetch(`${API_BASE}/investigation/ask`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              question,
+              session_id: sessionId,
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+
+          addMessage("assistant", data.answer || "", mediaFromEvidence(data.evidence));
+          setMeta([
+            { text: data.status || "unknown", kind: data.status === "success" ? "ok" : "" },
+            { text: `allowed ${data.allowed_level ?? "-"}` },
+            { text: `next ${data.next_allowed_level ?? "-"}` },
+            { text: `level ${data.level ?? "-"}` },
+            { text: `score ${data.score ?? "-"}` },
+            { text: `turn ${data.question_count ?? "-"}` },
+          ]);
+
+          evidenceListEl.innerHTML = "";
+          for (const item of data.evidence || []) {
+            const card = document.createElement("article");
+            card.className = "evidence";
+            card.innerHTML = `
+              <h2>
+                <span></span>
+                <span class="pill">score ${item.score}</span>
+              </h2>
+              <div class="evidence-media"></div>
+              <p></p>
+            `;
+            card.querySelector("h2 span").textContent = `${item.title || item.id} · ${item.category}`;
+            const mediaEl = card.querySelector(".evidence-media");
+            if (item.image?.url) {
+              const imageEl = document.createElement("img");
+              imageEl.className = "evidence-image";
+              imageEl.src = resolveImageUrl(item.image.url);
+              imageEl.alt = item.image.alt || "단서 이미지";
+              imageEl.loading = "lazy";
+              mediaEl.appendChild(imageEl);
+            }
+            card.querySelector("p").textContent = item.content;
+            evidenceListEl.appendChild(card);
+          }
+          await refreshProgress();
+        } catch (error) {
+          addMessage("assistant", `요청 실패: ${error.message}`);
+          setMeta([{ text: "error", kind: "error" }]);
+        } finally {
+          buttonEl.disabled = false;
+          submitButtonEl.disabled = false;
+        }
+      }
+
+      async function submitAnswer() {
+        const answer = questionEl.value.trim();
+        if (!answer) return;
+
+        buttonEl.disabled = true;
+        submitButtonEl.disabled = true;
+        addMessage("user", `[정답 제출] ${answer}`);
+        setMeta([{ text: "submitting" }]);
+
+        try {
+          const response = await fetch(`${API_BASE}/investigation/submit`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              answer,
+              session_id: sessionId,
+            }),
+          });
+          const data = await response.json();
+          if (!response.ok) throw new Error(data.detail || `HTTP ${response.status}`);
+
+          addMessage("assistant", data.answer || "");
+          setMeta([
+            { text: data.status || "unknown", kind: data.solved ? "ok" : "" },
+            { text: `solved ${data.solved ? "yes" : "no"}` },
+            { text: data.clear_rank ? `rank ${data.clear_rank.rank}` : "rank -" },
+            { text: `turn ${data.question_count ?? "-"}` },
+            { text: `missing ${data.missing_evidence_count ?? "-"}` },
+            { text: `submit ${data.submission_count ?? "-"}` },
+          ]);
+          await refreshProgress();
+        } catch (error) {
+          addMessage("assistant", `제출 실패: ${error.message}`);
+          setMeta([{ text: "error", kind: "error" }]);
+        } finally {
+          buttonEl.disabled = false;
+          submitButtonEl.disabled = false;
+        }
+      }
+
+      buttonEl.addEventListener("click", askQuestion);
+      submitButtonEl.addEventListener("click", submitAnswer);
+      resetSessionButtonEl.addEventListener("click", () => {
+        resetSession();
+      });
+      for (const presetButtonEl of presetButtonEls) {
+        presetButtonEl.addEventListener("click", () => {
+          questionEl.value = presetButtonEl.dataset.question || "";
+          questionEl.focus();
+        });
+      }
+      questionEl.addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+          askQuestion();
+        }
+      });
+
+      resetSession();
+      checkBackend();
+    </script>
+  </body>
+</html>
