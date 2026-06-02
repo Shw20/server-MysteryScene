@@ -1,9 +1,44 @@
+"""MysteryScene 조사 진행 컨트롤러.
+
+이 파일은 채팅 입력 하나를 받아서 다음 순서로 처리한다.
+1. 현재 세션에서 열린 단서 목록을 계산한다.
+2. 명확한 키워드 입력은 규칙 기반으로 먼저 라우팅한다.
+3. 키워드로 부족한 자연어 입력만 LLM 의도 분류로 보조한다.
+4. unlock_rules로 잠긴 단서는 공개하지 않고, 다음 행동만 안내한다.
+5. 열린 단서만 discovered_evidence_ids에 저장하고 진행도를 갱신한다.
+
+핵심 원칙: LLM은 "보조 판단"만 하고, 단서 공개 여부는 서버 규칙이 최종 결정한다.
+"""
+
 import asyncio
 import json
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from src.controller.intent_keywords import (
+    ACTION_VERB_TERMS,
+    BEER_ACTION_TERMS,
+    BOOK_ACTION_TERMS,
+    CALL_ACTION_TERMS,
+    CHAIR_ACTION_TERMS,
+    DAMAGE_ACTION_TERMS,
+    DRINK_ACTION_TERMS,
+    FINAL_ACTION_TERMS,
+    FOLLOWUP_REFERENCE_TERMS,
+    FOLLOWUP_RELATION_TERMS,
+    GENERIC_LOCKED_TERMS,
+    LEAVE_ACTION_TERMS,
+    MEMO_ACTION_TERMS,
+    ODD_OBJECT_ACTION_TERMS,
+    PATTERN_ACTION_TERMS,
+    POSTBOX_ACTION_TERMS,
+    RECORD_ACTION_TERMS,
+    SIT_ACTION_TERMS,
+    STUDY_ACTION_TERMS,
+    SUNDIAL_ACTION_TERMS,
+    TROJAN_PATTERN_TERMS,
+)
 from src.database.evidence_loader import load_evidence_items, load_scenario_dataset
 from src.database.scenario_schema import ScenarioDataset
 from src.database.session_store import SessionSnapshot, SQLiteSessionStore
@@ -73,139 +108,57 @@ EVIDENCE_INTENT_TARGETS = {
     "E07": "pattern",
     "E08": "final_location",
 }
-GENERIC_LOCKED_TERMS = {
-    "final",
-    "finallocation",
-    "solution",
-    "결론",
-    "단서",
-    "여행지",
-    "정답",
-    "최종",
-}
-ACTION_VERB_TERMS = {
-    "간다",
-    "뒤져",
-    "뒤진",
-    "둘러",
-    "본다",
-    "보다",
-    "살펴",
-    "열어",
-    "이동",
-    "조사",
-    "찾아",
-    "찾는",
-    "탐색",
-    "확인",
-}
-STUDY_ACTION_TERMS = {"서재", "현장", "주변"}
-CHAIR_ACTION_TERMS = {"안락의자", "의자"}
-MEMO_ACTION_TERMS = {
-    "글자",
-    "눌러쓴",
-    "눌러",
-    "메모",
-    "메모지",
-    "사이드테이블",
-    "용지",
-    "자국",
-    "종이",
-    "테이블",
-}
-BEER_ACTION_TERMS = {
-    "맥주",
-    "맥주캔",
-    "쓰레기통",
-    "캔",
-    "휴지통",
-    "흑맥주",
-}
-RECORD_ACTION_TERMS = {"guinness", "기네스", "기네스북", "브랜드", "세계기록", "기록"}
-BOOK_ACTION_TERMS = {"가장큰책", "큰책", "책"}
-POSTBOX_ACTION_TERMS = {"가장큰우체통", "큰우체통", "우체통"}
-SUNDIAL_ACTION_TERMS = {"가장큰해시계", "큰해시계", "해시계"}
-PATTERN_ACTION_TERMS = {"공통", "공통점", "규칙", "나머지", "패턴"}
-FINAL_ACTION_TERMS = {
-    "마지막여행지",
-    "목마",
-    "최종목적지",
-    "트로이",
-    "트로이목마",
-    "트로이의목마",
-}
-FOLLOWUP_REFERENCE_TERMS = {
-    "그건",
-    "그거",
-    "그단서",
-    "그럼그건",
-    "방금",
-    "앞서",
-    "이건",
-    "이거",
-    "이단서",
-}
-FOLLOWUP_RELATION_TERMS = {
-    "관계",
-    "관련",
-    "뭐랑",
-    "무엇과",
-    "연결",
-    "연관",
-    "이어",
-}
-DRINK_ACTION_TERMS = {"들이켜", "마셔", "마신", "마신다", "맛봐", "맛본", "먹어", "먹는다"}
-SIT_ACTION_TERMS = {"걸터", "눕", "앉"}
-CALL_ACTION_TERMS = {"전화", "연락", "문자", "카톡", "부른", "불러"}
-LEAVE_ACTION_TERMS = {"나가", "나간", "나간다", "도망", "떠나", "밖으로"}
-DAMAGE_ACTION_TERMS = {
-    "깨",
-    "던져",
-    "망가",
-    "부순",
-    "부숴",
-    "불",
-    "찢",
-    "태워",
-    "파괴",
-    "훼손",
-}
-ODD_OBJECT_ACTION_TERMS = {"창문", "커튼", "램프", "서랍", "바닥", "문고리"}
+
+# 사용자가 올바른 행동을 했을 때 채팅창에 바로 보여주는 조사 기록 문구다.
+# 성공 응답에는 "입력해보세요" 같은 직접 가이드를 넣지 않는다.
+# 직접 가이드는 locked_clue/no_clue/반복 입력처럼 막혔을 때만 출력한다.
 CLUE_ANSWER_TEMPLATES = {
     "E01": (
-        "종이는 꽤 친절한 척하지만, 사실 가장 중요한 말을 슬쩍 빼먹었습니다. "
-        "네 단어 앞에 같은 수식어를 붙여 보면 탐정의 장난이 조금 덜 얄미워질 겁니다."
+        "종이에는 눌린 자국이 희미하게 남아 있다.\n"
+        "- 책\n- 우체통\n- 해시계\n- 트로이의 목마\n\n"
+        "처음에는 서로 관련 없어 보인다. 하지만 이상하게도, 모든 단어 앞에 '가장 큰'을 붙이면 "
+        "실제 존재하는 장소처럼 느껴진다. 특히 '가장 큰 책'은 실제로 검색해볼 만한 단서다."
     ),
     "E02": (
-        "쓰레기통치고는 꽤 품위 있는 물건을 품고 있군요. "
-        "술 이름보다, 그 이름이 붙은 '기록' 쪽이 더 수상합니다."
+        "캔에는 'Guinness'라는 이름이 적혀 있다. 문득 떠오른다.\n"
+        "'기네스'는 세계 기록으로도 유명한 이름 아니었던가?\n\n"
+        "탐정은 아마 '세계에서 가장 큰 것들'을 의도적으로 연결하고 있는 것 같다."
     ),
     "E03": (
-        "맥주가 목을 축이러 온 게 아니었네요. "
-        "그 브랜드가 자꾸 기록을 들먹이는 순간, 메모의 '가장 큰'도 그냥 큰소리가 아니게 됩니다."
+        "좋은 접근이다. 지금까지 조사한 단서들을 보면, 메모 속 단어들은 모두 "
+        "'세계에서 가장 큰 것들'과 연결된다.\n\n"
+        "아직 남은 단어는:\n- 해시계\n- 트로이의 목마"
     ),
     "E04": (
-        "책이 꼭 읽히려고만 존재하는 건 아닌 모양입니다. "
-        "이번엔 내용보다 크기라는 뻔뻔한 자랑을 먼저 의심해 보세요."
+        "세계에서 가장 큰 책으로 알려진 장소가 검색된다. "
+        "탐정은 단순 단어가 아니라, 실제 존재하는 장소들을 단서로 남기고 있는 것 같다.\n\n"
+        "다른 단어들도 같은 방식으로 조사할 수 있을지 모른다."
     ),
     "E05": (
-        "우체통이 편지를 받으려고 커졌다면 너무 성실한 이야기겠죠. "
-        "이 단어도 기록 목록의 한 칸처럼 굴고 있습니다."
+        "세계에서 가장 큰 우체통 역시 실제 존재한다. 메모 속 단어들은 모두 "
+        "'세계에서 가장 큰 것들'과 관련되어 있는 듯하다.\n\n"
+        "그런데... 왜 하필 흑맥주였을까?"
     ),
     "E06": (
-        "시간을 알려주는 물건이 이번엔 방향을 알려주는군요. "
-        "책, 우체통과 같은 방식으로 '가장 큰'이라는 꼬리표를 달고 있습니다."
+        "세계에서 가장 큰 해시계 역시 실제 관광지로 존재한다. 이제 거의 확실하다.\n\n"
+        "탐정은 '세계에서 가장 큰 것들'을 따라 여행하고 있었던 것 같다. "
+        "마지막 단서는 '트로이의 목마'다."
     ),
     "E07": (
-        "앞의 셋이 같은 농담을 반복했습니다. "
-        "그러니 남은 트로이의 목마도 말보다 덩치를 먼저 의심하는 편이 낫습니다."
+        "세계에서 가장 큰 트로이의 목마와 관련된 장소가 검색된다. "
+        "사진 속 목마의 모습이 어딘가 익숙하다.\n\n"
+        "탐정은 마지막 단서를 해외가 아니라 국내 장소와 연결한 것 같다. "
+        "관련 지역을 조금 더 조사해볼 필요가 있다."
     ),
     "E08": (
-        "드디어 말이 목적지를 흘리기 시작합니다. "
-        "같은 규칙을 마지막 단어에 적용하면, 지도는 여주 쪽으로 고개를 돌립니다. "
-        "이제 왜 그곳이어야 하는지 앞의 세 기록과 맞춰보세요."
+        "검색 결과, 거대한 트로이의 목마 조형물이 있는 장소가 나온다.\n\n"
+        "경기도 여주.\n\n"
+        "탐정의 마지막 목적지는 아마 이곳이었던 것 같다."
     ),
 }
+
+# evidence 배열에 함께 내려가는 단서 카드용 요약 문구다.
+# 채팅 답변보다 짧고, UI의 진행도/확보 단서 목록에서 읽히는 것을 목표로 한다.
 CLUE_DISPLAY_TEMPLATES = {
     "E01": (
         "메모는 네 물건을 그대로 던져두고, 공통 수식어는 일부러 숨겼다. "
@@ -279,6 +232,9 @@ _sessions: dict[str, GameSessionState] = {}
 _openai_client: object | None = None
 _session_store: SQLiteSessionStore | None = None
 _session_store_path: str | None = None
+
+# 위 전역 변수들은 런타임 캐시다.
+# RAG 인덱스, 시나리오 데이터, 세션 상태를 매 요청마다 다시 만들지 않기 위해 보관한다.
 
 
 def _scenario_path() -> Path:
@@ -989,7 +945,21 @@ def _target_or_intro(
     unlocked_ids: set[str],
     intro_id: str | None = "E01",
 ) -> str | None:
+    """향후 인트로 단서로 우회할 수 있도록 남겨둔 라우팅 확장 지점."""
+
     return target_id
+
+
+def _should_route_trojan_query_to_pattern(text: str, state: GameSessionState, dataset: ScenarioDataset) -> bool:
+    """해시계 이후의 트로이 목마 질문은 최종지(E08)가 아니라 패턴 단서(E07)로 먼저 보낸다."""
+
+    pattern_id = _first_existing_evidence_id(dataset, ["E07"])
+    return bool(
+        pattern_id
+        and "E06" in state.discovered_evidence_ids
+        and "E07" not in state.discovered_evidence_ids
+        and _has_any_term(text, TROJAN_PATTERN_TERMS)
+    )
 
 
 def _action_target_evidence_id(
@@ -998,6 +968,12 @@ def _action_target_evidence_id(
     unlocked_ids: set[str],
     dataset: ScenarioDataset,
 ) -> str | None:
+    """명확한 키워드 입력을 시나리오 단서 ID로 변환한다.
+
+    이 함수의 결과는 LLM 의도 분류보다 우선한다.
+    예를 들어 "가장 큰 해시계 검색"은 LLM이 흑맥주로 오분류해도 E06으로 고정된다.
+    """
+
     record_id = _first_existing_evidence_id(dataset, ["E03"])
     book_id = _first_existing_evidence_id(dataset, ["E04"])
     postbox_id = _first_existing_evidence_id(dataset, ["E05"])
@@ -1005,20 +981,33 @@ def _action_target_evidence_id(
     pattern_id = _first_existing_evidence_id(dataset, ["E07"])
     final_id = _first_existing_evidence_id(dataset, ["E08", "E03"])
 
+    # 기록 대상 단서들은 단어가 서로 겹칠 수 있으므로 구체적인 물건부터 검사한다.
+    # 책/우체통/해시계는 각각 E04/E05/E06으로 직접 연결된다.
     if _has_any_term(text, BOOK_ACTION_TERMS):
         return _target_or_intro(book_id, state, unlocked_ids)
     if _has_any_term(text, POSTBOX_ACTION_TERMS):
         return _target_or_intro(postbox_id, state, unlocked_ids)
     if _has_any_term(text, SUNDIAL_ACTION_TERMS):
         return _target_or_intro(sundial_id, state, unlocked_ids)
+
+    # 공통점/패턴 질문은 세 물건을 묶는 E07 쪽으로 보낸다.
     if _has_any_term(text, PATTERN_ACTION_TERMS):
         return _target_or_intro(pattern_id, state, unlocked_ids)
+
+    # 현장 물건 조사는 초반 단서다. 맥주/메모는 레벨 1 단서라 바로 라우팅한다.
     if _has_any_term(text, BEER_ACTION_TERMS):
         return "E02"
     if _has_any_term(text, MEMO_ACTION_TERMS):
         return "E01"
+
+    # 트로이 목마 표현은 최종 목적지(E08)와 패턴 단서(E07)에 모두 걸릴 수 있다.
+    # 해시계까지 확인한 상태라면 먼저 E07을 열어야 게임 흐름이 건너뛰지 않는다.
     if _has_any_term(text, FINAL_ACTION_TERMS):
+        if _should_route_trojan_query_to_pattern(text, state, dataset):
+            return _target_or_intro(pattern_id, state, unlocked_ids)
         return _target_or_intro(final_id, state, unlocked_ids)
+
+    # "기네스", "세계기록" 계열은 맥주를 기록 체계로 연결하는 E03이다.
     if _has_any_term(text, RECORD_ACTION_TERMS):
         if record_id and record_id in unlocked_ids:
             return record_id
@@ -1260,79 +1249,65 @@ def _format_previous_steps(steps: list[str]) -> str:
     return ", ".join(steps[:-1]) + f", 그리고 {steps[-1]}"
 
 
-def _basic_clue_gap_answer(state: GameSessionState) -> str:
-    missing_steps = []
+def _next_guided_input(state: GameSessionState) -> str:
+    """난이도 하 데모용으로 다음 입력 예시를 직접 제시한다."""
+
+    # 이 순서가 실제 플레이 가이드의 기준선이다.
+    # 사용자가 막히거나 순서를 건너뛰면 아래 문구 중 현재 필요한 것만 안내한다.
     if "E01" not in state.discovered_evidence_ids:
-        missing_steps.append("테이블 위 메모")
+        return "'메모 조사'"
+    if "E04" not in state.discovered_evidence_ids:
+        return "'가장 큰 책 검색'"
+    if "E05" not in state.discovered_evidence_ids:
+        return "'가장 큰 우체통 검색'"
     if "E02" not in state.discovered_evidence_ids:
-        missing_steps.append("쓰레기통의 흑맥주 캔")
+        return "'흑맥주 조사'"
+    if "E03" not in state.discovered_evidence_ids:
+        return "'기네스 세계기록이랑 관련 있나?'"
+    if "E06" not in state.discovered_evidence_ids:
+        return "'가장 큰 해시계 검색'"
+    if "E07" not in state.discovered_evidence_ids:
+        return "'세계에서 가장 큰 트로이의 목마 검색'"
+    if "E08" not in state.discovered_evidence_ids:
+        return "'국내 트로이의 목마 장소 검색'"
+    return "'경기도 여주'"
 
-    if missing_steps:
-        return (
-            "탐정이 계단을 만들어놨는데, 벌써 난간을 타고 올라가려는 셈입니다. "
-            f"먼저 {_format_previous_steps(missing_steps)}부터 확인해 보세요. "
-            "그 둘이 서로를 가리키기 시작해야 다음 장난이 열립니다."
-        )
 
-    return (
-        "초반 단서는 챙겼지만, 아직 결론으로 가기에는 탐정의 장난이 한 겹 남았습니다. "
-        "흑맥주가 어떤 기록 체계로 이어지는지 먼저 확인해 보세요."
+def _guided_step_answer(state: GameSessionState, prefix: str | None = None) -> str:
+    lead = prefix or "아직 그 단서를 해석하기엔 순서가 조금 어긋났습니다."
+    return f"{lead}\n\n지금은 {_next_guided_input(state)}라고 입력해보세요."
+
+
+def _basic_clue_gap_answer(state: GameSessionState) -> str:
+    return _guided_step_answer(
+        state,
+        "탐정이 일부러 순서를 흩뜨려 놓았지만, 지금은 다음 단서부터 잡는 편이 빠릅니다.",
     )
 
 
 def _locked_action_answer(target_id: str | None, state: GameSessionState) -> str:
+    """아직 열리지 않은 단서를 요구했을 때 다음 행동을 안내한다."""
+
     if target_id == "E03":
-        return _basic_clue_gap_answer(state)
+        return _guided_step_answer(
+            state,
+            "기네스 쪽 감은 좋지만, 그 연결을 확정하려면 앞선 단서가 조금 더 필요합니다.",
+        )
     if target_id in {"E04", "E05", "E06"} and "E03" not in state.discovered_evidence_ids:
-        if "E01" not in state.discovered_evidence_ids or "E02" not in state.discovered_evidence_ids:
-            return _basic_clue_gap_answer(state)
-        return (
-            "개별 기록으로 바로 달려가면 탐정만 흐뭇해질 겁니다. "
-            "먼저 메모와 흑맥주가 같은 '기록' 체계 안에서 만나는지 확인해 보세요. "
-            "그 다음에야 책, 우체통, 해시계가 얌전히 줄을 섭니다."
+        return _guided_step_answer(
+            state,
+            "그 검색어도 맞는 방향이지만, 지금 단계에서 먼저 확인해야 할 단서가 있습니다.",
         )
     if target_id == "E07":
-        if "E03" not in state.discovered_evidence_ids:
-            if "E01" not in state.discovered_evidence_ids or "E02" not in state.discovered_evidence_ids:
-                return _basic_clue_gap_answer(state)
-            return (
-                "공통점을 찾겠다는 마음은 훌륭한데, 아직 공통으로 묶을 끈이 없습니다. "
-                "먼저 흑맥주가 어떤 기록 체계로 이어지는지 확인해 보세요. "
-                "그 끈이 생겨야 책, 우체통, 해시계가 한 줄에 섭니다."
-            )
-        missing_records = _missing_record_names(state)
-        if missing_records:
-            return (
-                "공통점을 먼저 말하겠다는 건, 답안지 맨 아래부터 읽겠다는 꽤 탐정스러운 반칙입니다. "
-                f"아직 {_format_previous_steps(missing_records)} 기록을 확인해야 합니다. "
-                "셋이 같은 표정을 지을 때까지 조금만 더 괴롭혀 보세요."
-            )
-        return (
-            "재료는 모였는데 아직 비빔은 안 된 상태입니다. "
-            "책, 우체통, 해시계가 같은 방식으로 묶이는지 먼저 정리해 보세요."
+        return _guided_step_answer(
+            state,
+            "트로이의 목마로 가는 길은 거의 보이지만, 아직 마지막 직전의 단서가 남아 있습니다.",
         )
     if target_id == "E08":
-        if "E03" not in state.discovered_evidence_ids:
-            if "E01" not in state.discovered_evidence_ids or "E02" not in state.discovered_evidence_ids:
-                return _basic_clue_gap_answer(state)
-            return (
-                "최종 목적지로 바로 뛰면 여행이 아니라 순간이동이죠. "
-                "먼저 흑맥주가 어떤 기록 체계로 이어지는지 확인해 보세요. "
-                "말은 그 다음에 꺼내도 늦지 않습니다."
-            )
-        missing_records = _missing_record_names(state)
-        if missing_records:
-            return (
-                "트로이의 목마가 벌써 나서면 앞의 단서들이 체면을 잃습니다. "
-                f"먼저 {_format_previous_steps(missing_records)} 기록을 확인해 보세요. "
-                "앞의 셋이 같은 규칙을 증명해야 마지막 말도 움직입니다."
-            )
-        if "E07" not in state.discovered_evidence_ids:
-            return (
-                "목적지는 아직 입술만 달싹이는 중입니다. "
-                "책, 우체통, 해시계가 만든 공통 패턴을 먼저 정리해 보세요. "
-                "그 규칙이 마지막 단어를 데리고 갈 겁니다."
-            )
+        return _guided_step_answer(
+            state,
+            "최종 목적지는 아직 바로 말하기엔 이릅니다.",
+        )
     return _basic_clue_gap_answer(state)
 
 
@@ -1361,13 +1336,29 @@ def _clue_display_text(item) -> str:
     return f"{title} 단서를 확보했습니다. 이제 이 단서가 앞뒤 맥락에서 어떤 역할을 하는지 따져보세요."
 
 
-def _action_evidence_answer(item, was_already_found: bool) -> str:
-    prefix = "이미 확인한 단서입니다. " if was_already_found else ""
+def _action_evidence_answer(item, was_already_found: bool, state: GameSessionState) -> str:
+    """행동 입력으로 단서를 발견했을 때 채팅창에 보여줄 문구를 만든다."""
+
+    if was_already_found:
+        # 최종 단서는 반복 입력 시에도 사건 종결 느낌이 나도록 별도 문구를 준다.
+        if getattr(item, "id", "") == "E08":
+            return (
+                "모든 단서가 하나로 이어진다.\n\n"
+                "탐정은 '세계에서 가장 큰 것들'을 따라 이동했고, 마지막 목적지는 "
+                "트로이의 목마와 연결된 장소였다.\n\n"
+                "당신은 탐정이 남긴 마지막 행선지를 찾아냈다."
+            )
+        return _guided_step_answer(
+            state,
+            "이미 확인한 단서입니다. 같은 곳을 다시 보기보다 다음 단서로 넘어가면 됩니다.",
+        )
+
+    # 처음 발견한 단서는 직접 가이드 없이 조사 기록만 보여준다.
     template = CLUE_ANSWER_TEMPLATES.get(getattr(item, "id", ""))
     if template:
-        return f"{prefix}{template}"
+        return template
 
-    return f"{prefix}{_clue_display_text(item)}"
+    return _clue_display_text(item)
 
 
 def _action_response(
@@ -1509,15 +1500,16 @@ def _process_action_input(
 ) -> dict | None:
     """행동형 입력을 처리한다.
 
+    처리 우선순위:
     1) 엉뚱한 자유 행동은 flavor_action으로 받아준다.
-    2) LLM/규칙이 가리킨 단서가 잠겨 있으면 locked_clue로 막는다.
-    3) 열린 단서만 discovered_evidence_ids에 추가한다.
+    2) 명확한 키워드 매핑은 LLM보다 먼저 적용한다.
+    3) 키워드로 못 잡은 자연어만 LLM 의도 분류 결과를 사용한다.
+    4) 잠긴 단서는 locked_clue로 막고 다음 행동을 안내한다.
+    5) 열린 단서만 discovered_evidence_ids에 추가한다.
     """
 
     text = _normalize_match_text(question)
     confident_intent = intent if _intent_is_confident(intent) else None
-    if confident_intent and confident_intent.intent == "ask_relation":
-        return None
 
     flavor_answer = _flavor_action_answer(text)
     if not flavor_answer and confident_intent and confident_intent.intent == "flavor":
@@ -1533,15 +1525,34 @@ def _process_action_input(
             next_allowed_level=allowed_level,
         )
 
-    target_id = None
-    if confident_intent and confident_intent.intent in {"inspect", "submit_guess"}:
+    # 팀원분이 제공한 키워드 사전 기반 라우팅이다.
+    # "가장 큰 해시계 검색"처럼 명확한 입력은 여기서 먼저 단서 ID가 결정된다.
+    rule_target_id = _action_target_evidence_id(text, state, unlocked_before, dataset)
+
+    target_id = rule_target_id
+    if target_id is None and confident_intent and confident_intent.intent == "ask_relation":
+        # "이거랑 관련 있어?" 같은 관계 질문이 새 단서를 가리키면 단서 발견으로 처리한다.
+        # 이미 발견한 단서라면 후속 질문 처리(_process_followup_input)로 넘긴다.
+        relation_target_id = _intent_target_evidence_id(confident_intent.target, dataset)
+        if relation_target_id and relation_target_id not in state.discovered_evidence_ids:
+            target_id = relation_target_id
+        else:
+            return None
+
+    if target_id is None and confident_intent and confident_intent.intent in {"inspect", "submit_guess"}:
+        # 키워드로 못 잡은 자연어 행동만 LLM target을 사용한다.
+        # 그래도 아래 unlock 검사에서 잠긴 단서 공개는 막힌다.
         target = confident_intent.target
         if confident_intent.intent == "submit_guess" and target is None:
             target = "final_location"
         target_id = _intent_target_evidence_id(target, dataset)
 
-    if target_id is None:
-        target_id = _action_target_evidence_id(text, state, unlocked_before, dataset)
+    final_id = _first_existing_evidence_id(dataset, ["E08", "E03"])
+    pattern_id = _first_existing_evidence_id(dataset, ["E07"])
+    if target_id == final_id and _should_route_trojan_query_to_pattern(text, state, dataset):
+        # LLM이 트로이 목마 검색을 최종 목적지로 오분류하는 경우를 보정한다.
+        target_id = pattern_id
+
     if target_id is None:
         if confident_intent and confident_intent.intent == "broad_scene":
             return _action_response(
@@ -1572,6 +1583,8 @@ def _process_action_input(
     if item is None:
         return None
     if target_id not in unlocked_before or getattr(item, "visibility", "") == "hidden":
+        # 여기서 최종 안전장치를 건다.
+        # 라우팅이 맞아도 unlock_rules상 아직 열리지 않았으면 단서는 공개하지 않는다.
         return _action_response(
             answer=_locked_action_answer(target_id, state),
             status="locked_clue",
@@ -1584,11 +1597,12 @@ def _process_action_input(
 
     was_already_found = target_id in state.discovered_evidence_ids
     state.discovered_evidence_ids.add(target_id)
+    # 단서를 하나 추가한 뒤 unlock_rules를 다시 계산해 다음 단계 레벨을 갱신한다.
     unlocked_after = _unlocked_evidence_ids(dataset, state)
     next_allowed_level = _highest_unlocked_level(dataset, unlocked_after)
     formatted_evidence = [_format_evidence_item(item)]
     return _action_response(
-        answer=_action_evidence_answer(item, was_already_found),
+        answer=_action_evidence_answer(item, was_already_found, state),
         status="success",
         dataset=dataset,
         session_id=active_session_id,
@@ -1676,8 +1690,11 @@ def _generate_chat_answer(
     settings = RAGSettings.from_env()
     client = _get_openai_client(settings)
     if client is None:
+        # API 키가 없거나 클라이언트 생성에 실패해도 데모가 멈추지 않도록 고정 응답을 사용한다.
         return _fallback_answer(evidence[0]["content"])
 
+    # 이 프롬프트는 "생성형 말투"만 담당한다.
+    # 어떤 단서를 공개할지는 이미 서버 규칙과 RAG 필터에서 결정된 뒤다.
     system_prompt = (
         "너는 MysteryScene 추리 게임의 AI 조사관이다. "
         "반드시 제공된 단서만 근거로 답한다. "
@@ -1723,8 +1740,12 @@ def _process_question_sync(question: str, session_id: str | None = None) -> dict
     state = _get_session_state(active_session_id, dataset.scenario_id)
     state.question_count += 1
 
+    # 현재까지 발견한 단서로 지금 열려 있는 단서 목록과 허용 레벨을 계산한다.
     unlocked_before = _unlocked_evidence_ids(dataset, state)
     allowed_level = _highest_unlocked_level(dataset, unlocked_before)
+
+    # "여주", "최종 목적지"처럼 아직 열리지 않은 정답급 단어는 가장 먼저 차단한다.
+    # 이 단계가 있어야 RAG나 LLM으로 넘어가기 전에 정답 누출을 막을 수 있다.
     locked_target_id = _mentions_locked_specific_term(dataset, question, unlocked_before)
     if locked_target_id:
         response = {
@@ -1742,6 +1763,8 @@ def _process_question_sync(question: str, session_id: str | None = None) -> dict
         _record_question_exchange(active_session_id, dataset.scenario_id, question, response)
         return response
 
+    # LLM 의도 분류는 행동/질문 의도를 보조 판단한다.
+    # 실제 단서 공개 여부는 뒤의 _process_action_input에서 다시 검사한다.
     intent = _classify_input_intent(
         question,
         dataset,
@@ -1750,6 +1773,8 @@ def _process_question_sync(question: str, session_id: str | None = None) -> dict
         active_session_id,
     )
 
+    # 행동형 입력이 먼저 처리된다.
+    # 예: "메모 조사", "가장 큰 책 검색", "흑맥주 조사"
     action_response = _process_action_input(
         question,
         dataset,
@@ -1764,6 +1789,7 @@ def _process_question_sync(question: str, session_id: str | None = None) -> dict
         _record_question_exchange(active_session_id, dataset.scenario_id, question, action_response)
         return action_response
 
+    # 행동이 아니라 "그건 뭐랑 관련 있어?" 같은 후속 질문이면 최근 단서에 붙인다.
     followup_response = _process_followup_input(
         question,
         dataset,
@@ -1777,6 +1803,8 @@ def _process_question_sync(question: str, session_id: str | None = None) -> dict
         _record_question_exchange(active_session_id, dataset.scenario_id, question, followup_response)
         return followup_response
 
+    # 위 규칙으로 잡히지 않은 일반 질문은 RAG 검색으로 처리한다.
+    # 검색도 현재 허용 레벨 이하, 그리고 열린 단서 안에서만 수행한다.
     raw_results = service.search(
         query=question,
         scenario_id=dataset.scenario_id,
@@ -1791,8 +1819,12 @@ def _process_question_sync(question: str, session_id: str | None = None) -> dict
     ][:RESPONSE_TOP_K]
 
     if not results:
+        # 단서와 연결되지 않은 입력은 막혔다고 보고 현재 다음 행동을 직접 알려준다.
         response = {
-            "answer": f"'{question}'에 대한 단서를 찾지 못했습니다.",
+            "answer": (
+                f"'{question}'에 대한 단서를 찾지 못했습니다.\n\n"
+                f"지금은 {_next_guided_input(state)}라고 입력해보세요."
+            ),
             "status": "no_clue",
             "level": allowed_level,
             "allowed_level": allowed_level,
@@ -1809,6 +1841,7 @@ def _process_question_sync(question: str, session_id: str | None = None) -> dict
     best = results[0]
     answer_context = [_format_evidence(result) for result in results]
     evidence = [_format_evidence_result(result, dataset) for result in results]
+    # RAG로 찾은 단서도 열린 단서에 한해서만 발견 처리한다.
     _discover_results(state, results)
     unlocked_after = _unlocked_evidence_ids(dataset, state)
     next_allowed_level = _highest_unlocked_level(dataset, unlocked_after)

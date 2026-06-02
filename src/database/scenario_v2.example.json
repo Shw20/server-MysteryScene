@@ -263,30 +263,30 @@
   "unlock_rules": [
     {
       "id": "U01",
-      "target_evidence_id": "E03",
-      "condition": {
-        "type": "evidence_found",
-        "evidence_ids": ["E01", "E02"]
-      },
-      "description": "메모와 흑맥주 캔을 모두 확인하면 기네스 기록 연결 단서가 열린다."
-    },
-    {
-      "id": "U02",
       "target_evidence_id": "E04",
       "condition": {
         "type": "evidence_found",
-        "evidence_ids": ["E03"]
+        "evidence_ids": ["E01"]
       },
-      "description": "기네스 기록 연결을 확인하면 가장 큰 책 기록을 조사할 수 있다."
+      "description": "메모를 확인하면 가장 큰 책 기록을 조사할 수 있다."
     },
     {
-      "id": "U03",
+      "id": "U02",
       "target_evidence_id": "E05",
       "condition": {
         "type": "evidence_found",
-        "evidence_ids": ["E03"]
+        "evidence_ids": ["E04"]
       },
-      "description": "기네스 기록 연결을 확인하면 가장 큰 우체통 기록을 조사할 수 있다."
+      "description": "가장 큰 책 기록을 확인하면 가장 큰 우체통 기록을 조사할 수 있다."
+    },
+    {
+      "id": "U03",
+      "target_evidence_id": "E03",
+      "condition": {
+        "type": "evidence_found",
+        "evidence_ids": ["E02", "E05"]
+      },
+      "description": "흑맥주 캔과 앞선 기록 단서를 확인하면 기네스 세계기록 연결 단서가 열린다."
     },
     {
       "id": "U04",
@@ -295,16 +295,16 @@
         "type": "evidence_found",
         "evidence_ids": ["E03"]
       },
-      "description": "기네스 기록 연결을 확인하면 가장 큰 해시계 기록을 조사할 수 있다."
+      "description": "기네스 세계기록 연결을 확인하면 가장 큰 해시계 기록을 조사할 수 있다."
     },
     {
       "id": "U05",
       "target_evidence_id": "E07",
       "condition": {
         "type": "evidence_found",
-        "evidence_ids": ["E04", "E05", "E06"]
+        "evidence_ids": ["E06"]
       },
-      "description": "책, 우체통, 해시계 기록을 모두 확인하면 공통 패턴 단서가 열린다."
+      "description": "해시계까지 확인하면 트로이의 목마 기록을 조사할 수 있다."
     },
     {
       "id": "U06",

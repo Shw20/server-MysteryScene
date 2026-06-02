@@ -373,8 +373,7 @@ class InvestigationControllerTests(unittest.TestCase):
         self.assertEqual(response["allowed_level"], 1)
         self.assertEqual(response["next_allowed_level"], 1)
         self.assertEqual(response["evidence"], [])
-        self.assertIn("테이블", response["answer"])
-        self.assertIn("쓰레기통", response["answer"])
+        self.assertIn("메모 조사", response["answer"])
         self.assertEqual(service.calls, [])
         self.assertEqual(controller._sessions["session-e"].discovered_evidence_ids, set())
 
@@ -464,8 +463,9 @@ class InvestigationControllerTests(unittest.TestCase):
 
         self.assertEqual(response["status"], "success")
         self.assertEqual(response["input_type"], "action")
-        self.assertIn("수식어", response["answer"])
-        self.assertNotIn("눌러쓴 자국", response["answer"])
+        self.assertIn("가장 큰 책", response["answer"])
+        self.assertNotIn("입력해보세요", response["answer"])
+        self.assertIn("눌린 자국", response["answer"])
         self.assertEqual([item["id"] for item in response["evidence"]], ["E01"])
         self.assertIn("공통 수식어", response["evidence"][0]["content"])
         self.assertNotIn("눌러쓴 자국", response["evidence"][0]["content"])
@@ -475,6 +475,250 @@ class InvestigationControllerTests(unittest.TestCase):
         )
         self.assertEqual(service.calls, [])
         self.assertEqual(controller._sessions["session-action-b"].discovered_evidence_ids, {"E01"})
+
+    def test_correct_guided_flow_does_not_force_next_input_on_success(self) -> None:
+        service = FakeRAGService()
+        dataset = load_scenario_dataset(Path("src/database/scenario_v2.example.json"))
+
+        with patch(
+            "src.controller.investigation_controller._get_rag_runtime",
+            return_value=(service, dataset),
+        ):
+            responses = [
+                controller._process_question_sync(
+                    "메모 조사",
+                    session_id="session-action-natural-flow",
+                ),
+                controller._process_question_sync(
+                    "가장 큰 책 검색",
+                    session_id="session-action-natural-flow",
+                ),
+                controller._process_question_sync(
+                    "가장 큰 우체통 검색",
+                    session_id="session-action-natural-flow",
+                ),
+                controller._process_question_sync(
+                    "흑맥주 조사",
+                    session_id="session-action-natural-flow",
+                ),
+                controller._process_question_sync(
+                    "기네스 세계기록이랑 관련 있나?",
+                    session_id="session-action-natural-flow",
+                ),
+            ]
+
+        for response in responses:
+            self.assertEqual(response["status"], "success")
+            self.assertNotIn("입력해보세요", response["answer"])
+
+        self.assertEqual(
+            [response["evidence"][0]["id"] for response in responses],
+            ["E01", "E04", "E05", "E02", "E03"],
+        )
+        self.assertEqual(service.calls, [])
+
+    def test_wrong_mixed_input_guides_next_step_after_beer_is_found(self) -> None:
+        service = FakeRAGService()
+        dataset = load_scenario_dataset(Path("src/database/scenario_v2.example.json"))
+
+        with patch(
+            "src.controller.investigation_controller._get_rag_runtime",
+            return_value=(service, dataset),
+        ):
+            for question in [
+                "메모 조사",
+                "가장 큰 책 검색",
+                "가장 큰 우체통 검색",
+                "흑맥주 조사",
+            ]:
+                controller._process_question_sync(
+                    question,
+                    session_id="session-action-wrong-mixed",
+                )
+
+            response = controller._process_question_sync(
+                "가장 큰 흑맥주",
+                session_id="session-action-wrong-mixed",
+            )
+
+        self.assertIn("기네스 세계기록이랑 관련 있나?", response["answer"])
+        self.assertIn("입력해보세요", response["answer"])
+        self.assertEqual(service.calls, [])
+
+    def test_llm_relation_intent_discovers_unseen_unlocked_relation_clue(self) -> None:
+        service = FakeRAGService()
+        dataset = load_scenario_dataset(Path("src/database/scenario_v2.example.json"))
+
+        with patch(
+            "src.controller.investigation_controller._get_rag_runtime",
+            return_value=(service, dataset),
+        ), patch(
+            "src.controller.investigation_controller._classify_input_intent",
+            side_effect=[
+                controller.IntentClassification(intent="inspect", target="memo", confidence=0.95),
+                controller.IntentClassification(
+                    intent="inspect",
+                    target="book_record",
+                    confidence=0.95,
+                ),
+                controller.IntentClassification(
+                    intent="inspect",
+                    target="postbox_record",
+                    confidence=0.95,
+                ),
+                controller.IntentClassification(intent="inspect", target="beer", confidence=0.95),
+                controller.IntentClassification(
+                    intent="ask_relation",
+                    target="record_system",
+                    confidence=0.95,
+                ),
+            ],
+        ):
+            for question in [
+                "메모 조사",
+                "가장 큰 책 검색",
+                "가장 큰 우체통 검색",
+                "흑맥주 조사",
+            ]:
+                controller._process_question_sync(
+                    question,
+                    session_id="session-action-llm-relation",
+                )
+
+            response = controller._process_question_sync(
+                "기네스 세계기록이랑 관련 있나?",
+                session_id="session-action-llm-relation",
+            )
+
+        self.assertEqual(response["status"], "success")
+        self.assertEqual([item["id"] for item in response["evidence"]], ["E03"])
+        self.assertNotIn("입력해보세요", response["answer"])
+        self.assertEqual(service.calls, [])
+
+    def test_llm_final_location_intent_for_trojan_query_discovers_pattern_after_sundial(self) -> None:
+        service = FakeRAGService()
+        dataset = load_scenario_dataset(Path("src/database/scenario_v2.example.json"))
+
+        with patch(
+            "src.controller.investigation_controller._get_rag_runtime",
+            return_value=(service, dataset),
+        ), patch(
+            "src.controller.investigation_controller._classify_input_intent",
+            side_effect=[
+                controller.IntentClassification(intent="inspect", target="memo", confidence=0.95),
+                controller.IntentClassification(
+                    intent="inspect",
+                    target="book_record",
+                    confidence=0.95,
+                ),
+                controller.IntentClassification(
+                    intent="inspect",
+                    target="postbox_record",
+                    confidence=0.95,
+                ),
+                controller.IntentClassification(intent="inspect", target="beer", confidence=0.95),
+                controller.IntentClassification(
+                    intent="ask_relation",
+                    target="record_system",
+                    confidence=0.95,
+                ),
+                controller.IntentClassification(
+                    intent="inspect",
+                    target="sundial_record",
+                    confidence=0.95,
+                ),
+                controller.IntentClassification(
+                    intent="inspect",
+                    target="final_location",
+                    confidence=0.95,
+                ),
+            ],
+        ):
+            for question in [
+                "메모 조사",
+                "가장 큰 책 검색",
+                "가장 큰 우체통 검색",
+                "흑맥주 조사",
+                "기네스 세계기록이랑 관련 있나?",
+                "가장 큰 해시계를 조사한다",
+            ]:
+                controller._process_question_sync(
+                    question,
+                    session_id="session-action-trojan-llm",
+                )
+
+            response = controller._process_question_sync(
+                "가장 큰 트로이 목마를 조사한다",
+                session_id="session-action-trojan-llm",
+            )
+
+        self.assertEqual(response["status"], "success")
+        self.assertEqual([item["id"] for item in response["evidence"]], ["E07"])
+        self.assertNotIn("최종 목적지는 아직", response["answer"])
+        self.assertNotIn("입력해보세요", response["answer"])
+        self.assertEqual(service.calls, [])
+
+    def test_explicit_sundial_keyword_overrides_wrong_llm_beer_intent(self) -> None:
+        service = FakeRAGService()
+        dataset = load_scenario_dataset(Path("src/database/scenario_v2.example.json"))
+
+        with patch(
+            "src.controller.investigation_controller._get_rag_runtime",
+            return_value=(service, dataset),
+        ), patch(
+            "src.controller.investigation_controller._classify_input_intent",
+            side_effect=[
+                controller.IntentClassification(intent="inspect", target="memo", confidence=0.95),
+                controller.IntentClassification(
+                    intent="inspect",
+                    target="book_record",
+                    confidence=0.95,
+                ),
+                controller.IntentClassification(
+                    intent="inspect",
+                    target="postbox_record",
+                    confidence=0.95,
+                ),
+                controller.IntentClassification(
+                    intent="inspect",
+                    target="sundial_record",
+                    confidence=0.95,
+                ),
+                controller.IntentClassification(intent="inspect", target="beer", confidence=0.95),
+                controller.IntentClassification(intent="inspect", target="beer", confidence=0.95),
+            ],
+        ):
+            for question in [
+                "메모 조사",
+                "가장 큰 책 검색",
+                "가장 큰 우체통 검색",
+            ]:
+                controller._process_question_sync(
+                    question,
+                    session_id="session-action-sundial-override",
+                )
+
+            early_sundial_response = controller._process_question_sync(
+                "가장 큰 해시계 검색",
+                session_id="session-action-sundial-override",
+            )
+            controller._process_question_sync(
+                "흑맥주 조사",
+                session_id="session-action-sundial-override",
+            )
+            response = controller._process_question_sync(
+                "가장 큰 해시계 검색",
+                session_id="session-action-sundial-override",
+            )
+
+        self.assertEqual(early_sundial_response["status"], "locked_clue")
+        self.assertIn("흑맥주 조사", early_sundial_response["answer"])
+        self.assertEqual(response["status"], "locked_clue")
+        self.assertEqual(response["evidence"], [])
+        self.assertNotIn("이미 확인한 단서", response["answer"])
+        self.assertIn("기네스 세계기록이랑 관련 있나?", response["answer"])
+        self.assertNotIn("E06", controller._sessions["session-action-sundial-override"].discovered_evidence_ids)
+        self.assertEqual(service.calls, [])
 
     def test_llm_intent_routes_natural_inspection_without_keyword_match(self) -> None:
         service = FakeRAGService()
@@ -629,8 +873,7 @@ class InvestigationControllerTests(unittest.TestCase):
 
         self.assertEqual(response["status"], "locked_clue")
         self.assertEqual(response["evidence"], [])
-        self.assertIn("테이블 위 메모", response["answer"])
-        self.assertIn("쓰레기통", response["answer"])
+        self.assertIn("메모 조사", response["answer"])
         self.assertEqual(
             controller._sessions["session-action-jump-start"].discovered_evidence_ids,
             set(),
@@ -663,11 +906,9 @@ class InvestigationControllerTests(unittest.TestCase):
 
         self.assertEqual(locked_response["status"], "locked_clue")
         self.assertEqual(locked_response["evidence"], [])
-        self.assertIn("쓰레기통", locked_response["answer"])
-        self.assertIn("흑맥주", locked_response["answer"])
+        self.assertIn("가장 큰 책 검색", locked_response["answer"])
         self.assertEqual(beer_response["next_allowed_level"], 3)
         self.assertEqual(final_response["status"], "success")
-        self.assertEqual(final_response["allowed_level"], 3)
         self.assertEqual([item["id"] for item in final_response["evidence"]], ["E03"])
         self.assertEqual(service.calls, [])
 
@@ -683,16 +924,8 @@ class InvestigationControllerTests(unittest.TestCase):
                 "테이블 위 메모를 확인한다",
                 session_id="session-action-detailed",
             )
-            beer_response = controller._process_question_sync(
-                "쓰레기통을 뒤져본다",
-                session_id="session-action-detailed",
-            )
             early_final_response = controller._process_question_sync(
                 "트로이의 목마를 조사한다",
-                session_id="session-action-detailed",
-            )
-            record_response = controller._process_question_sync(
-                "기네스 기록을 확인한다",
                 session_id="session-action-detailed",
             )
             book_response = controller._process_question_sync(
@@ -703,26 +936,34 @@ class InvestigationControllerTests(unittest.TestCase):
                 "가장 큰 우체통 기록을 조사한다",
                 session_id="session-action-detailed",
             )
+            beer_response = controller._process_question_sync(
+                "쓰레기통을 뒤져본다",
+                session_id="session-action-detailed",
+            )
+            record_response = controller._process_question_sync(
+                "기네스 기록을 확인한다",
+                session_id="session-action-detailed",
+            )
             sundial_response = controller._process_question_sync(
                 "가장 큰 해시계 기록을 조사한다",
                 session_id="session-action-detailed",
             )
             pattern_response = controller._process_question_sync(
-                "네 단어의 공통점을 정리한다",
+                "세계에서 가장 큰 트로이의 목마 검색",
                 session_id="session-action-detailed",
             )
             final_response = controller._process_question_sync(
-                "트로이의 목마를 조사한다",
+                "국내 트로이의 목마 장소 검색",
                 session_id="session-action-detailed",
             )
 
         self.assertEqual([item["id"] for item in memo_response["evidence"]], ["E01"])
-        self.assertEqual([item["id"] for item in beer_response["evidence"]], ["E02"])
         self.assertEqual(early_final_response["status"], "locked_clue")
-        self.assertIn("기록 체계", early_final_response["answer"])
-        self.assertEqual([item["id"] for item in record_response["evidence"]], ["E03"])
+        self.assertIn("가장 큰 책 검색", early_final_response["answer"])
         self.assertEqual([item["id"] for item in book_response["evidence"]], ["E04"])
         self.assertEqual([item["id"] for item in postbox_response["evidence"]], ["E05"])
+        self.assertEqual([item["id"] for item in beer_response["evidence"]], ["E02"])
+        self.assertEqual([item["id"] for item in record_response["evidence"]], ["E03"])
         self.assertEqual([item["id"] for item in sundial_response["evidence"]], ["E06"])
         self.assertEqual([item["id"] for item in pattern_response["evidence"]], ["E07"])
         self.assertEqual([item["id"] for item in final_response["evidence"]], ["E08"])
@@ -742,14 +983,6 @@ class InvestigationControllerTests(unittest.TestCase):
                 session_id="session-action-skipped",
             )
             controller._process_question_sync(
-                "쓰레기통을 뒤져본다",
-                session_id="session-action-skipped",
-            )
-            controller._process_question_sync(
-                "기네스 기록을 확인한다",
-                session_id="session-action-skipped",
-            )
-            controller._process_question_sync(
                 "가장 큰 책 기록을 조사한다",
                 session_id="session-action-skipped",
             )
@@ -761,7 +994,6 @@ class InvestigationControllerTests(unittest.TestCase):
         self.assertEqual(response["status"], "locked_clue")
         self.assertEqual(response["evidence"], [])
         self.assertIn("가장 큰 우체통", response["answer"])
-        self.assertIn("가장 큰 해시계", response["answer"])
         self.assertEqual(service.calls, [])
 
     def test_related_followup_uses_latest_evidence_context(self) -> None:
